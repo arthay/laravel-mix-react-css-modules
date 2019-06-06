@@ -3,6 +3,19 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 var path = _interopDefault(require('path'));
 var mix = _interopDefault(require('laravel-mix'));
 
+var styleExtensionsRegex = [{
+    regex: /\.css$/,
+    moduleRegex: /\.module\.css$/
+},{
+    regex: /\.sass$/,
+    moduleRegex: /\.module\.sass$/
+},{
+    regex: /\.scss$/,
+    moduleRegex: /\.module\.scss$/
+},{
+    regex: /\.less$/,
+    moduleRegex: /\.module\.less$/
+}];
 var ReactCSSModules = function ReactCSSModules() {
     this.scopedName = this.defaultScopedName();
 };
@@ -23,11 +36,22 @@ ReactCSSModules.prototype.register = function register (scopedName) {
 ReactCSSModules.prototype.webpackConfig = function webpackConfig (config) {
         var this$1 = this;
 
-    config.module.rules = config.module.rules.map(function (rule) {
-        if (!rule.loaders) {
-            return rule;
+    var newRules = [];
+    var loop = function () {
+        var rule = list[i];
+
+            if (!rule.loaders) {
+            return;
         }
-        rule.loaders = rule.loaders.map(function (loader) {
+        var newRule = Object.assign({}, rule);
+        var regexIndex = styleExtensionsRegex.findIndex(function (styleExtensionRegex) { return String(styleExtensionRegex.regex) === String(rule.test); });
+        if (regexIndex !== -1) {
+            rule.exclude = rule.exclude && rule.exclude.constructor === Array ? rule.exclude.concat([styleExtensionsRegex[regexIndex].moduleRegex]) : styleExtensionsRegex[regexIndex].moduleRegex;
+            newRule.test = styleExtensionsRegex[regexIndex].moduleRegex;
+        } else {
+            return;
+        }
+        newRule.loaders = newRule.loaders.map(function (loader) {
             if (loader.loader === "css-loader" || loader === "css-loader") {
                 var options = {
                     modules: true,
@@ -35,13 +59,16 @@ ReactCSSModules.prototype.webpackConfig = function webpackConfig (config) {
                 };
                 loader = typeof loader === "string" ? {
                     loader: loader
-                } : loader;
+                } : Object.assign({}, loader);
                 loader.options = loader.options ? Object.assign({}, loader.options, options) : options;
             }
             return loader;
         });
-        return rule;
-    });
+        newRules.push(newRule);
+    };
+
+        for (var i = 0, list = config.module.rules; i < list.length; i += 1) loop();
+    config.module.rules = config.module.rules.concat( newRules);
     return config;
 };
 ReactCSSModules.prototype.babelConfig = function babelConfig () {

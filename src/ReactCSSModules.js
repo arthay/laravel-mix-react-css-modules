@@ -1,4 +1,22 @@
 import path from 'path';
+const styleExtensionsRegex = [
+  {
+    regex: /\.css$/,
+    moduleRegex: /\.module\.css$/
+  },
+  {
+    regex: /\.sass$/,
+    moduleRegex: /\.module\.sass$/,
+  },
+  {
+    regex: /\.scss$/,
+    moduleRegex: /\.module\.scss$/,
+  },
+  {
+    regex:/\.less$/,
+    moduleRegex: /\.module\.less$/
+  }
+];
 
 class ReactCSSModules {
   /**
@@ -67,13 +85,24 @@ class ReactCSSModules {
    */
   webpackConfig(config) {
     // Loop through all rules
-    config.module.rules = config.module.rules.map(rule => {
+    const newRules = [];
+    for (const rule of config.module.rules) {
       if (!rule.loaders) {
-        return rule;
+        continue
+      }
+        let newRule = Object.assign({}, rule);
+
+      const regexIndex = styleExtensionsRegex.findIndex(styleExtensionRegex => String(styleExtensionRegex.regex) === String(rule.test));
+
+      if(regexIndex !== -1) {
+        rule.exclude = rule.exclude && rule.exclude.constructor === Array ? rule.exclude.concat( [styleExtensionsRegex[regexIndex].moduleRegex]) : styleExtensionsRegex[regexIndex].moduleRegex;
+        newRule.test = styleExtensionsRegex[regexIndex].moduleRegex;
+      } else {
+          continue
       }
 
       // Loop through all loaders
-      rule.loaders = rule.loaders.map(loader => {
+      newRule.loaders = newRule.loaders.map(loader => {
         if (loader.loader === "css-loader" || loader === "css-loader") {
           // Add our options to the loader
           let options = {
@@ -83,23 +112,25 @@ class ReactCSSModules {
 
           // Convert string syntax to object syntax if neccessary
           loader =
-            typeof loader === "string"
-              ? {
-                  loader
-                }
-              : loader;
+              typeof loader === "string"
+                  ? {
+                    loader
+                  }
+                  : Object.assign({}, loader);
 
           // Inject our options into the loader
           loader.options = loader.options
-            ? Object.assign({}, loader.options, options)
-            : options;
+              ? Object.assign({}, loader.options, options)
+              : options;
         }
 
         return loader;
       });
 
-      return rule;
-    });
+      newRules.push(newRule);
+    }
+
+    config.module.rules = [...config.module.rules, ...newRules];
 
     return config;
   }
